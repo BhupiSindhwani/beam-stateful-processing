@@ -81,7 +81,7 @@ class GenerateSessionsDoFn(beam.DoFn):
         end_time = last_event.timestamp
 
         journey_length_seconds = (end_time - start_time).total_seconds()
-        distance = events_count  # Just an example, this could be actual distance
+        distance = last_event.meter_reading  # Just an example, this could be actual distance
         session_speed = distance / journey_length_seconds
         self._distribution.update(session_speed)
 
