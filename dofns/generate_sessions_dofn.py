@@ -19,6 +19,7 @@ from apache_beam.coders import IterableCoder, FloatCoder
 
 from typing import Tuple, Iterable
 from apache_beam.metrics import Metrics
+from apache_beam.metrics.metricbase import Distribution
 from apache_beam.transforms.userstate import (CombiningValueStateSpec, BagStateSpec,
                                               TimerSpec, on_timer)
 from apache_beam.transforms.timeutil import TimeDomain
@@ -29,6 +30,7 @@ from data.taxi_stat_event import TaxiStatEvent
 
 
 class GenerateSessionsDoFn(beam.DoFn):
+    _distribution: Distribution
     # Metric to count the number of ride events received
     ride_events_received = Metrics.counter('GenerateSessionsDoFn', 'ride_events_received')
 
@@ -49,7 +51,10 @@ class GenerateSessionsDoFn(beam.DoFn):
                                             IterableCoder(FloatCoder()),
                                             lambda elements: max(elements, default=0))
 
-    def calculate_session(taxi_ride_events_bag,
+    def __init__(self):
+        self._distribution = Metrics.distribution('My sessions DoFn', 'vehicle_speed')
+
+    def calculate_session(self, taxi_ride_events_bag,
                           session_reason: TaxiStatEvent.Reason) -> TaxiStatEvent:
         first_event = None
         last_event = None
@@ -76,6 +81,9 @@ class GenerateSessionsDoFn(beam.DoFn):
         end_time = last_event.timestamp
 
         journey_length_seconds = (end_time - start_time).total_seconds()
+        distance = events_count  # Just an example, this could be actual distance
+        session_speed = distance / journey_length_seconds
+        self._distribution.update(session_speed)
 
         taxi_stat_event = TaxiStatEvent(
             ride_id=first_event.ride_id,
